@@ -1,9 +1,14 @@
 // Thin client over the yt-dlp FastAPI backend.
-// The backend sends permissive CORS headers (reflects Origin, allows credentials),
-// so we call it directly. Override with VITE_API_BASE if you self-host.
-// Set VITE_API_BASE='' to instead use the Vite dev proxy (see vite.config.js).
-
-const BASE = import.meta.env.VITE_API_BASE ?? 'https://yt-dlp.wololoaeyoyo.com'
+//
+// We go through a SAME-ORIGIN path (/api -> Vite proxy -> backend) on purpose.
+// The backend's CORS headers are fine on success, but its unhandled 500s (e.g.
+// /api/auth/register) come back as bare text/plain WITHOUT CORS headers, which
+// the browser then reports as a bogus "CORS error" on cross-origin calls.
+// Routing through the proxy keeps every request same-origin, so there is no CORS
+// check at all and real error bodies/status codes come through intact.
+//
+// Override with VITE_API_BASE to hit the backend directly (subject to CORS).
+const BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8000'
 
 const TOKEN_KEY = 'ytdlp.jwt'
 
