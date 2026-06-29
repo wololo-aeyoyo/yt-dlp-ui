@@ -214,47 +214,17 @@ body {
 
 .inputline { display: flex; align-items: baseline; }
 
-.inputwrap {
-  position: relative;
-  flex: 1;
-  display: inline-block;
-}
-
 .cmd {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
-  color: transparent;
-  caret-color: transparent;
+  color: var(--phos-bright);
+  caret-color: var(--phos);
+  text-shadow: var(--glow);
   font: inherit;
   padding: 0;
-  z-index: 2;
-}
-
-.ghost {
-  color: var(--phos-bright);
-  text-shadow: var(--glow);
-  white-space: pre-wrap;
-  word-break: break-word;
-  pointer-events: none;
-}
-
-.caret {
-  display: inline-block;
-  width: 9px;
-  height: 1.05em;
-  margin-left: 1px;
-  vertical-align: text-bottom;
-  background: var(--phos);
-  box-shadow: var(--glow);
-  animation: blink 1.05s steps(1) infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
 }
 
 /* ---------- working / spinner ---------- */

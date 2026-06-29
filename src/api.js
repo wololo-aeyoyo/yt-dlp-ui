@@ -1,7 +1,9 @@
 // Thin client over the yt-dlp FastAPI backend.
-// In dev, requests go to /api which Vite proxies to the real host (no CORS pain).
+// The backend sends permissive CORS headers (reflects Origin, allows credentials),
+// so we call it directly. Override with VITE_API_BASE if you self-host.
+// Set VITE_API_BASE='' to instead use the Vite dev proxy (see vite.config.js).
 
-const BASE = import.meta.env.VITE_API_BASE ?? ''
+const BASE = import.meta.env.VITE_API_BASE ?? 'https://yt-dlp.wololoaeyoyo.com'
 
 const TOKEN_KEY = 'ytdlp.jwt'
 

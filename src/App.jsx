@@ -208,24 +208,18 @@ export default function App() {
         {!booting && !busy && (
           <div className="line inputline">
             <Prompt user={user} />
-            <div className="inputwrap">
-              <input
-                ref={inputRef}
-                className="cmd"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                autoComplete="off"
-                autoFocus
-              />
-              <span className="ghost">
-                {input}
-                <span className="caret" />
-              </span>
-            </div>
+            <input
+              ref={inputRef}
+              className="cmd"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              autoFocus
+            />
           </div>
         )}
       </main>
