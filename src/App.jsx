@@ -3,9 +3,12 @@ import { createRegistry } from './commands.jsx'
 import { ApiError, getToken } from './api.js'
 
 const BANNER = String.raw`
- ╦ ╦ ╔╦╗   ╔╦╗ ╦   ╔═╗
- ╚╦╝  ║  ─ ║║║ ║   ╠═╝
-  ╩   ╩    ═╩╝ ╩═╝ ╩
+░█░█░▀█▀░░░░░█░█░█▀█░█░░░█▀█░█░░░█▀█
+░░█░░░█░░▄▄▄░█▄█░█░█░█░░░█░█░█░░░█░█
+░░▀░░░▀░░░░░░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀
+  ╷          ╷ .  .╷ ╷ .  .╷ .╷   .╷
+  .          .     ╎ .     ╎  ╎    .
+                   .       .  .
 `
 
 const BOOT = [
