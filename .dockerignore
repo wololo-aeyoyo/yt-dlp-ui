@@ -1,0 +1,31 @@
+# Dependencies + build output (reinstalled/rebuilt inside the image)
+node_modules
+dist
+*.log
+
+# Git
+.git
+.gitignore
+
+# Env files (pass via runtime env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.swp
+
+# Agent / AI tool configs (not needed at runtime)
+.claude
+CLAUDE.md
+AGENTS.md
+
+# Docker + docs (not needed inside the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md
