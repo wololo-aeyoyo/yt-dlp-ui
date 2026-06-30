@@ -20,12 +20,38 @@ export function setToken(tok) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
+// Decode a JWT payload client-side (no verification — display only).
+function decodeJwt(tok = getToken()) {
+  if (!tok) return null
+  try {
+    const part = tok.split('.')[1]
+    if (!part) return null
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(decodeURIComponent(escape(json)))
+  } catch {
+    return null
+  }
+}
+
+// Best-effort username from the stored token, for restoring the UI on reload.
+export function usernameFromToken() {
+  const p = decodeJwt()
+  return p?.username || p?.user || p?.sub || p?.name || null
+}
+
+// True only if the token has an `exp` claim that is already in the past.
+export function isTokenExpired() {
+  const p = decodeJwt()
+  if (!p || typeof p.exp !== 'number') return false
+  return Date.now() >= p.exp * 1000
+}
+
 async function request(path, { method = 'GET', body, auth = false, raw = false } = {}) {
   const headers = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (auth) {
     const tok = getToken()
-    if (!tok) throw new ApiError('not authenticated — run `login <user> <pass>`', 401)
+    if (!tok) throw new ApiError('not authenticated — run `login`', 401)
     headers['Authorization'] = `Bearer ${tok}`
   }
 

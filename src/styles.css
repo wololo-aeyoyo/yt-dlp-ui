@@ -250,6 +250,50 @@ body {
   padding: 0;
 }
 
+/* interactive TTY prompt label (login:, password:, …) */
+.prompt-label {
+  color: var(--sys);
+  white-space: pre;
+}
+
+/* masked password field: a transparent real input over an asterisk ghost */
+.maskwrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: inline-block;
+}
+.cmd.masked {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  color: transparent;
+  caret-color: transparent;
+  text-shadow: none;
+  z-index: 2;
+}
+.maskghost {
+  color: var(--phos-bright);
+  text-shadow: var(--glow);
+  letter-spacing: 1px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  pointer-events: none;
+}
+.caret {
+  display: inline-block;
+  width: 9px;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--phos);
+  box-shadow: var(--glow);
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
 /* ---------- working / spinner ---------- */
 .working { color: var(--sys); }
 .spinner { display: inline-block; margin-right: 6px; }

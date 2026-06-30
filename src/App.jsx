@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRegistry } from './commands.jsx'
-import { ApiError, getToken } from './api.js'
+import { api, ApiError, getToken, setToken, usernameFromToken, isTokenExpired } from './api.js'
 
 const BANNER = String.raw`
 ░█░█░▀█▀░░░░░█░█░█▀█░█░░░█▀█░█░░░█▀█
@@ -31,6 +31,7 @@ export default function App() {
   const [theme, setTheme] = useState('green')
   const [busy, setBusy] = useState(false)
   const [booting, setBooting] = useState(true)
+  const [prompt, setPrompt] = useState(null) // active interactive prompt: { label, mask, resolve }
 
   const history = useRef([])
   const histIdx = useRef(-1)
@@ -38,6 +39,9 @@ export default function App() {
   const scrollRef = useRef(null)
   const userRef = useRef(null)
   userRef.current = user
+  const promptRef = useRef(null)
+  promptRef.current = prompt
+  const interactiveRef = useRef(false) // true while a command is mid-prompt sequence
 
   // ---- output helpers (stable) ----
   const push = useCallback((kind, payload) => {
@@ -60,11 +64,54 @@ export default function App() {
         return userRef.current
       },
       setTheme: (t) => setTheme(t),
+      // Interactive TTY-style prompt. Returns the typed value, or null if
+      // the user aborted with Ctrl+C / Esc. Masked prompts hide the value.
+      ask: (label, opts = {}) =>
+        new Promise((resolve) => {
+          interactiveRef.current = true
+          setInput('')
+          setPrompt({ label, mask: !!opts.mask, resolve })
+          requestAnimationFrame(() => inputRef.current?.focus())
+        }),
     }),
     [push],
   )
 
   const registry = useMemo(() => createRegistry(io), [io])
+
+  // ---- restore a persisted session from localStorage on load ----
+  const restoreSession = useCallback(async () => {
+    if (!getToken()) {
+      io.out('type `help` for commands · `login` to authenticate.')
+      return
+    }
+    // clear obviously-dead tokens without bothering the network
+    if (isTokenExpired()) {
+      setToken(null)
+      setUser(null)
+      io.warn('stored session expired — run `login` to authenticate.')
+      return
+    }
+    // optimistic identity from the JWT, then verify against the backend
+    const cached = usernameFromToken()
+    if (cached) setUser(cached)
+    io.sys(`restoring session${cached ? ` · ${cached}` : ''} — verifying token…`)
+    try {
+      const me = await api.me()
+      const name = me?.username || me?.user || me?.sub || cached || 'user'
+      setUser(name)
+      io.ok(`session restored. welcome back, ${name}.`)
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        setToken(null)
+        setUser(null)
+        io.warn('stored session rejected — run `login` to authenticate.')
+      } else {
+        // backend unreachable: keep the cached session rather than logging out
+        io.dim('could not reach backend — using cached session (run `whoami` later).')
+      }
+    }
+  }, [io])
 
   // ---- boot sequence ----
   useEffect(() => {
@@ -81,9 +128,8 @@ export default function App() {
     })
     timers.push(
       setTimeout(() => {
-        if (getToken()) io.sys('session token found · run `whoami` to verify identity.')
-        io.out('type `help` for commands · `login <user> <pass>` to authenticate.')
         setBooting(false)
+        restoreSession()
       }, t + 260),
     )
     return () => timers.forEach(clearTimeout)
@@ -131,13 +177,45 @@ export default function App() {
           io.err(`✖ ${e.message || 'unknown error'}`)
         }
       } finally {
+        interactiveRef.current = false
+        setPrompt(null)
         setBusy(false)
       }
     },
     [io, push, registry],
   )
 
+  // ---- interactive prompt resolution ----
+  const finishPrompt = (value, { aborted = false } = {}) => {
+    const p = promptRef.current
+    if (!p) return
+    // echo the answered line into scrollback (never reveal a masked value)
+    push('promptecho', {
+      label: p.label,
+      value: aborted ? '^C' : p.mask ? '' : value,
+      mask: p.mask,
+      aborted,
+    })
+    setInput('')
+    setPrompt(null)
+    p.resolve(aborted ? null : value)
+  }
+
   const onKeyDown = (e) => {
+    // interactive prompt mode captures input instead of the command line
+    if (promptRef.current) {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        finishPrompt(input)
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+      } else if ((e.key === 'c' && e.ctrlKey) || e.key === 'Escape') {
+        e.preventDefault()
+        finishPrompt(null, { aborted: true })
+      }
+      return
+    }
+
     if (e.key === 'Enter') {
       if (busy) return
       const val = input
@@ -202,27 +280,55 @@ export default function App() {
           <Line key={ln.id} ln={ln} />
         ))}
 
-        {busy && (
+        {busy && !prompt && !interactiveRef.current && (
           <div className="line working">
             <Spinner /> working<span className="dots" />
           </div>
         )}
 
-        {!booting && !busy && (
+        {!booting && (prompt || !busy) && (
           <div className="line inputline">
-            <Prompt user={user} />
-            <input
-              ref={inputRef}
-              className="cmd"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              autoComplete="off"
-              autoFocus
-            />
+            {prompt ? (
+              <span className="ps1 prompt-label">{prompt.label}</span>
+            ) : (
+              <Prompt user={user} />
+            )}
+            {prompt?.mask ? (
+              <span className="maskwrap">
+                <input
+                  ref={inputRef}
+                  className="cmd masked"
+                  type="text"
+                  name="masked-secret"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  data-1p-ignore
+                  autoFocus
+                />
+                <span className="maskghost" aria-hidden>
+                  {'*'.repeat(input.length)}
+                  <span className="caret" />
+                </span>
+              </span>
+            ) : (
+              <input
+                ref={inputRef}
+                className="cmd"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                autoComplete="off"
+                autoFocus
+              />
+            )}
           </div>
         )}
       </main>
@@ -238,6 +344,13 @@ function Line({ ln }) {
       <div className="line">
         <Prompt user={ln.user} />
         <span className="echo">{ln.text}</span>
+      </div>
+    )
+  if (ln.kind === 'promptecho')
+    return (
+      <div className="line">
+        <span className="ps1 prompt-label">{ln.label}</span>
+        <span className={ln.aborted ? 'tone-err' : 'echo'}>{ln.value}</span>
       </div>
     )
   return <div className={`line tone-${ln.tone}`}>{ln.text}</div>

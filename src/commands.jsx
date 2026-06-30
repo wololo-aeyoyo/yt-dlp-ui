@@ -30,10 +30,21 @@ export function createRegistry(io) {
   def({
     name: 'register',
     desc: 'create a new account and sign in',
-    usage: 'register <username> <password>',
+    usage: 'register   (prompts for username + password)',
     run: async (args) => {
-      const [u, p] = args
-      if (!u || !p) return io.err('usage: register <username> <password>')
+      let u = args[0]
+      let p = args[1]
+      if (!u) u = (await io.ask('new username: '))?.trim()
+      if (!u) return io.warn('register: aborted.')
+      if (!p) {
+        p = await io.ask('new password: ', { mask: true })
+        if (p == null) return io.warn('register: aborted.')
+        const confirm = await io.ask('retype new password: ', { mask: true })
+        if (confirm == null) return io.warn('register: aborted.')
+        if (p !== confirm) return io.err('passwords do not match — nothing changed.')
+      }
+      if (!p) return io.warn('register: aborted.')
+      if (p.length < 8) return io.err('password must be at least 8 characters.')
       io.sys(`creating account "${u}"...`)
       const r = await api.register(u, p)
       setToken(r.access_token)
@@ -45,10 +56,14 @@ export function createRegistry(io) {
   def({
     name: 'login',
     desc: 'authenticate and store a session token',
-    usage: 'login <username> <password>',
+    usage: 'login   (prompts for username + password)',
     run: async (args) => {
-      const [u, p] = args
-      if (!u || !p) return io.err('usage: login <username> <password>')
+      let u = args[0]
+      let p = args[1]
+      if (!u) u = (await io.ask('login: '))?.trim()
+      if (!u) return io.warn('login: aborted.')
+      if (!p) p = await io.ask('password: ', { mask: true })
+      if (!p) return io.warn('login: aborted.')
       io.sys(`authenticating ${u}...`)
       const r = await api.login(u, p)
       setToken(r.access_token)
@@ -62,7 +77,7 @@ export function createRegistry(io) {
     desc: 'show the currently authenticated user',
     usage: 'whoami',
     run: async () => {
-      if (!getToken()) return io.err('not authenticated — run `login <user> <pass>`')
+      if (!getToken()) return io.err('not authenticated — run `login`')
       const me = await api.me()
       const name = me?.username || me?.user || io.user || 'unknown'
       io.out(typeof me === 'object' ? JSON.stringify(me) : String(me))
@@ -220,8 +235,8 @@ export function createRegistry(io) {
 
 function HelpTable() {
   const rows = [
-    ['login <u> <p>', 'authenticate'],
-    ['register <u> <p>', 'create an account'],
+    ['login', 'authenticate (prompts you)'],
+    ['register', 'create an account (prompts you)'],
     ['whoami', 'show current user'],
     ['logout', 'destroy session'],
     ['info <url>', 'metadata + formats'],
